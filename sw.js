@@ -1,5 +1,5 @@
-const CACHE_NAME = 'expense-app-v3';
-const ASSETS = ['./', './index.html', './manifest.json'];
+const CACHE_NAME = 'expense-app-v4';
+const ASSETS = ['./index.html', './manifest.json'];
 
 self.addEventListener('install', e => {
   self.skipWaiting();
