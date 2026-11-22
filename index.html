@@ -447,12 +447,20 @@
     }
 
     function renderUI() {
-      const selectedMonth = document.getElementById('monthFilter').value;
+            const selectedMonth = document.getElementById('monthFilter').value;
       const filtered = expenses.filter(item => {
-        const matchMonth = !selectedMonth || String(item.date).startsWith(selectedMonth);
+        let itemMonth = String(item.date || '').slice(0, 7);
+        if (!/^\d{4}-\d{2}$/.test(itemMonth)) {
+          const parsed = new Date(item.date);
+          if (!isNaN(parsed)) {
+            itemMonth = parsed.getFullYear() + '-' + String(parsed.getMonth() + 1).padStart(2, '0');
+          }
+        }
+        const matchMonth = !selectedMonth || itemMonth === selectedMonth;
         const matchMember = selectedMemberFilter === 'All' || item.member === selectedMemberFilter;
         return matchMonth && matchMember;
       });
+
 
       const displayLabel = selectedMemberFilter === 'Venkatesha' ? 'Venkatesh' : selectedMemberFilter;
       document.getElementById('dailyLabel').innerText = `DAILY EXPENSES (${displayLabel.toUpperCase()})`;
