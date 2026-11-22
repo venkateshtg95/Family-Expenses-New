@@ -20,6 +20,7 @@
     <select id="activeMember" class="bg-indigo-700 text-white text-sm px-3 py-1.5 rounded-lg font-medium border border-indigo-500 focus:outline-none">
       <option value="Venkatesha">👤 Venkatesha</option>
       <option value="Anjali">👤 Anjali</option>
+      <option value="Utkarsh">👶 Utkarsh</option>
     </select>
   </header>
   
@@ -29,21 +30,30 @@
       <span id="pendingCount">0</span> expense(s) waiting to sync. <button onclick="flushOfflineQueue()" class="underline ml-1 font-bold">Retry Now</button>
     </div>
 
-    <!-- Month Filter -->
-    <div class="bg-white p-3 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between">
-      <label class="text-xs font-semibold text-slate-600">📅 Filter Month</label>
-      <input type="month" id="monthFilter" onchange="renderUI()" class="text-sm font-semibold text-indigo-700 bg-indigo-50 px-3 py-1.5 rounded-lg border border-indigo-100 outline-none">
+    <!-- Month & Individual Member Filter -->
+    <div class="bg-white p-3 rounded-2xl shadow-sm border border-slate-100 space-y-3">
+      <div class="flex items-center justify-between">
+        <label class="text-xs font-semibold text-slate-600">📅 Filter Month</label>
+        <input type="month" id="monthFilter" onchange="renderUI()" class="text-sm font-semibold text-indigo-700 bg-indigo-50 px-3 py-1.5 rounded-lg border border-indigo-100 outline-none">
+      </div>
+      
+      <div class="grid grid-cols-4 gap-1.5">
+        <button type="button" id="filterAll" onclick="setMemberFilter('All')" class="py-1.5 text-xs font-semibold rounded-lg bg-indigo-600 text-white transition">All</button>
+        <button type="button" id="filterVenkatesha" onclick="setMemberFilter('Venkatesha')" class="py-1.5 text-xs font-semibold rounded-lg bg-slate-100 text-slate-600 transition">Venkatesh</button>
+        <button type="button" id="filterAnjali" onclick="setMemberFilter('Anjali')" class="py-1.5 text-xs font-semibold rounded-lg bg-slate-100 text-slate-600 transition">Anjali</button>
+        <button type="button" id="filterUtkarsh" onclick="setMemberFilter('Utkarsh')" class="py-1.5 text-xs font-semibold rounded-lg bg-slate-100 text-slate-600 transition">Utkarsh</button>
+      </div>
     </div>
 
     <!-- Summary & Budget Progress -->
     <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 space-y-3">
       <div class="grid grid-cols-2 gap-3 text-center">
         <div class="bg-indigo-50 p-3 rounded-xl">
-          <span class="text-[10px] text-indigo-600 font-semibold block">DAILY EXPENSES</span>
+          <span id="dailyLabel" class="text-[10px] text-indigo-600 font-semibold block">DAILY EXPENSES (ALL)</span>
           <span id="monthlyTotal" class="text-xl font-bold text-indigo-900">₹0</span>
         </div>
         <div class="bg-emerald-50 p-3 rounded-xl">
-          <span class="text-[10px] text-emerald-600 font-semibold block">FIXED / INVESTMENTS</span>
+          <span id="fixedLabel" class="text-[10px] text-emerald-600 font-semibold block">FIXED / INVESTMENTS</span>
           <span id="fixedTotal" class="text-xl font-bold text-emerald-900">₹0</span>
         </div>
       </div>
@@ -123,17 +133,17 @@
 
     <!-- Visual Analytics Chart -->
     <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
-      <h2 class="font-semibold text-slate-700 mb-2 text-sm">Category Breakdown</h2>
+      <h2 id="chartTitle" class="font-semibold text-slate-700 mb-2 text-sm">Category Breakdown (All)</h2>
       <div id="chartContainer" class="relative h-56 flex items-center justify-center">
         <canvas id="expenseChart"></canvas>
-        <p id="noChartData" class="hidden text-xs text-slate-400">No expenses for this month.</p>
+        <p id="noChartData" class="hidden text-xs text-slate-400">No expenses for this selection.</p>
       </div>
     </div>
 
     <!-- Entries List -->
     <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
       <div class="flex justify-between items-center mb-3">
-        <h2 class="font-semibold text-slate-700 text-sm">Entries (Tap to Edit)</h2>
+        <h2 id="listTitle" class="font-semibold text-slate-700 text-sm">Entries (Tap to Edit)</h2>
         <span id="entryCount" class="text-[10px] text-slate-400 font-medium">0 items</span>
       </div>
       <div id="expenseList" class="space-y-2 max-h-72 overflow-y-auto">
@@ -152,6 +162,7 @@
     let offlineQueue = JSON.parse(localStorage.getItem('expenseQueue') || '[]');
     
     let currentType = "Daily";
+    let selectedMemberFilter = "All";
     let isSyncing = false;
     let chartInstance = null;
 
@@ -174,6 +185,20 @@
     renderUI();
     updateStatusUI();
     if (navigator.onLine) flushOfflineQueue();
+
+    function setMemberFilter(member) {
+      selectedMemberFilter = member;
+      const members = ['All', 'Venkatesha', 'Anjali', 'Utkarsh'];
+      members.forEach(m => {
+        const btn = document.getElementById('filter' + m);
+        if (m === member) {
+          btn.className = "py-1.5 text-xs font-semibold rounded-lg bg-indigo-600 text-white transition";
+        } else {
+          btn.className = "py-1.5 text-xs font-semibold rounded-lg bg-slate-100 text-slate-600 transition";
+        }
+      });
+      renderUI();
+    }
 
     function populateCategories() {
       const select = document.getElementById('category');
@@ -423,11 +448,17 @@
 
     function renderUI() {
       const selectedMonth = document.getElementById('monthFilter').value;
-      const filtered = selectedMonth
-        ? expenses.filter(item => String(item.date).startsWith(selectedMonth))
-        : expenses;
+      const filtered = expenses.filter(item => {
+        const matchMonth = !selectedMonth || String(item.date).startsWith(selectedMonth);
+        const matchMember = selectedMemberFilter === 'All' || item.member === selectedMemberFilter;
+        return matchMonth && matchMember;
+      });
 
+      const displayLabel = selectedMemberFilter === 'Venkatesha' ? 'Venkatesh' : selectedMemberFilter;
+      document.getElementById('dailyLabel').innerText = `DAILY EXPENSES (${displayLabel.toUpperCase()})`;
+      document.getElementById('chartTitle').innerText = `Category Breakdown (${displayLabel})`;
       document.getElementById('entryCount').innerText = `${filtered.length} item${filtered.length === 1 ? '' : 's'}`;
+
       const list = document.getElementById('expenseList');
 
       let mTotal = 0;
@@ -465,7 +496,7 @@
 
       // Render List
       if (filtered.length === 0) {
-        list.innerHTML = `<p class="text-xs text-slate-400 text-center py-4">No expenses recorded for this month.</p>`;
+        list.innerHTML = `<p class="text-xs text-slate-400 text-center py-4">No expenses recorded for ${displayLabel} in this month.</p>`;
       } else {
         list.innerHTML = filtered.map(item => {
           const amt = Number(item.amount) || 0;
